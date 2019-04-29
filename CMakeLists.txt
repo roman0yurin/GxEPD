@@ -5,4 +5,4 @@ PROJECT(GxEPD C CXX ASM)
 #библиотека для работы со шрифтами.
 addSubmodule(../U8g2_fonts)
 
-configureModule()
+configureModuleSpecSrc()

@@ -18,7 +18,7 @@
 #if defined(ESP8266) || defined(ESP32)
 #include <pgmspace.h>
 #else
-#include <avr/pgmspace.h>
+#include <arduino/pgmspace.h>
 #endif
 
 // Partial Update Delay, may have an influence on degradation
