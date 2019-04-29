@@ -15,7 +15,7 @@
 #if defined(ESP8266) || defined(ESP32)
 #include <pgmspace.h>
 #else
-#include <avr/pgmspace.h>
+#include "arduino/pgmspace.h"
 #endif
 
 void  GxEPD::drawBitmapBM(const uint8_t *bitmap, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color, int16_t mode)
