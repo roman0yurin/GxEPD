@@ -16,18 +16,19 @@
 
 #include "../GxEPD.h"
 
-#define GxGDEW0154Z17_WIDTH 152
-#define GxGDEW0154Z17_HEIGHT 152
+#define GxGDEM0154E97LT_WIDTH 152
+#define GxGDEM0154E97LT_HEIGHT 152
 
-#define GxGDEW0154Z17_BUFFER_SIZE (uint32_t(GxGDEW0154Z17_WIDTH) * uint32_t(GxGDEW0154Z17_HEIGHT) / 8)
+#define GxGDEM0154E97LT_BUFFER_SIZE (uint32_t(GxGDEM0154E97LT_WIDTH) * uint32_t(GxGDEM0154E97LT_HEIGHT) / 8)
 
 // divisor for AVR, should be factor of GxGDEW0154Z17_HEIGHT
-#define GxGDEW0154Z17_PAGES 8
+#define GxGDEM0154E97LT_PAGES 8
 
-#define GxGDEW0154Z17_PAGE_HEIGHT (GxGDEW0154Z17_HEIGHT / GxGDEW0154Z17_PAGES)
-#define GxGDEW0154Z17_PAGE_SIZE (GxGDEW0154Z17_BUFFER_SIZE / GxGDEW0154Z17_PAGES)
+#define GxGDEM0154E97LT_PAGE_HEIGHT (GxGDEM0154E97LT_HEIGHT / GxGDEM0154E97LT_PAGES)
+#define GxGDEM0154E97LT_PAGE_SIZE (GxGDEM0154E97LT_BUFFER_SIZE / GxGDEM0154E97LT_PAGES)
+#define GxGDEM0154E97LT_PU_DELAY 500
 
-class GxGDEW0154Z17 : public GxEPD
+class GxGDEM0154E97LT : public GxEPD
 {
   public:
 #if defined(ESP8266)
@@ -35,10 +36,10 @@ class GxGDEW0154Z17 : public GxEPD
     // use pin numbers, other ESP8266 than Wemos may not use Dx names
     GxGDEW0154Z17(GxIO& io, int8_t rst = 2, int8_t busy = 4);
 #else
-    GxGDEW0154Z17(GxIO& io, int8_t rst = 9, int8_t busy = 7);
+    GxGDEM0154E97LT(GxIO& io, core::pin::GpioOutputRef rst, core::pin::GpioRef busy);
 #endif
     void drawPixel(int16_t x, int16_t y, uint16_t color);
-    void init(uint32_t serial_diag_bitrate = 0); // = 0 : disabled
+    void init(); // = 0 : disabled
     void fillScreen(uint16_t color); // to buffer
     void update(void);
     // to buffer, may be cropped, drawPixel() used, update needed
@@ -89,15 +90,13 @@ class GxGDEW0154Z17 : public GxEPD
     uint8_t _black_buffer[GxGDEW0154Z17_PAGE_SIZE];
     uint8_t _red_buffer[GxGDEW0154Z17_PAGE_SIZE];
 #else
-    uint8_t _black_buffer[GxGDEW0154Z17_BUFFER_SIZE];
-    uint8_t _red_buffer[GxGDEW0154Z17_BUFFER_SIZE];
+    uint8_t _black_buffer[GxGDEM0154E97LT_BUFFER_SIZE];
 #endif
     GxIO& IO;
     int16_t _current_page;
     bool _using_partial_mode;
-    bool _diag_enabled;
-    int8_t _rst;
-    int8_t _busy;
+    core::pin::GpioOutputRef _rst;
+		core::pin::GpioRef _busy;
 #if defined(ESP8266) || defined(ESP32)
   public:
     // the compiler of these packages has a problem with signature matching to base classes

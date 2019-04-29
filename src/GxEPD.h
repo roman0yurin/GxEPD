@@ -16,6 +16,8 @@
 #include "GxIO/GxIO.h"
 #include <Adafruit_GFX.h>
 #include "GxFont_GFX.h"
+#include "arduino/pgmspace.h"
+#include "core/pin/GpioRef.h"
 
 // the only colors supported by any of these displays; mapping of other colors is class specific
 #define GxEPD_BLACK     0x0000
@@ -80,6 +82,8 @@ class GxEPD : public GxFont_GFX
     void drawBitmapBM(const uint8_t *bitmap, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color, int16_t m);
     static inline uint16_t gx_uint16_min(uint16_t a, uint16_t b) {return (a < b ? a : b);};
     static inline uint16_t gx_uint16_max(uint16_t a, uint16_t b) {return (a > b ? a : b);};
+    /**Вставить паузу в процесс отображения на экранчике**/
+    virtual void delay(uint32_t ms) = 0;
 };
 
 #endif

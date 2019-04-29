@@ -6,13 +6,13 @@ PROJECT(GxEPD C CXX ASM)
 
 file(GLOB ADD_SRC
 		src/*.cpp src/*.c
-		src/GxIO/*.cpp
-		${CMAKE_CURRENT_SOURCE_DIR}/src/GxIO/GxIO_SPI/*.cpp
+#		src/GxIO/*.cpp эти классы обеспечивают низкоуровневую связь с MCU, дублируют возможности которые есть в платформе C60
+#		${CMAKE_CURRENT_SOURCE_DIR}/src/GxIO/GxIO_SPI/*.cpp
 		src/${EPAPER_MODEL}/*.cpp
 )
 
 additionalImport(${CMAKE_CURRENT_SOURCE_DIR}/src/${EPAPER_MODEL})
-#additionalSources("${ADD_SRC}")
+additionalSources("${ADD_SRC}")
 
 
 #библиотека для работы со шрифтами.
