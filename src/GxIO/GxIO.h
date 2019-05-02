@@ -10,31 +10,27 @@
 class GxIO
 {
   public:
-    GxIO() {};
-    const char* name = "GxIO";
-    virtual void reset();
-    virtual void init();
-    virtual void setFrequency(uint32_t freq){}; // for SPI
-    virtual void setClockDivider(uint32_t clockDiv){}; // for SPI
-    virtual uint8_t transferTransaction(uint8_t d);
-    virtual uint16_t transfer16Transaction(uint16_t d);
-    virtual uint8_t readDataTransaction();
-    virtual uint16_t readData16Transaction();
-    virtual uint8_t readData();
-    virtual uint16_t readData16();
-    virtual uint32_t readRawData32(uint8_t part); // debug purpose
-    virtual void writeCommandTransaction(uint8_t c);
-    virtual void writeDataTransaction(uint8_t d);
-    virtual void writeData16Transaction(uint16_t d, uint32_t num = 1);
-    virtual void writeCommand(uint8_t c);
-    virtual void writeData(uint8_t d);
-    virtual void writeData(uint8_t* d, uint32_t num);
-    virtual void writeData16(uint16_t d, uint32_t num = 1);
-    virtual void writeAddrMSBfirst(uint16_t d);
-    virtual void startTransaction();
-    virtual void endTransaction();
-    virtual void selectRegister(bool rs_low) {}; // for generalized readData & writeData (RA8875)
-    virtual void setBackLight(bool lit);
+    virtual void reset() = 0;
+    virtual void init() = 0;
+//    virtual uint8_t transferTransaction(uint8_t d);
+//    virtual uint16_t transfer16Transaction(uint16_t d);
+//    virtual uint8_t readDataTransaction() = 0;
+//    virtual uint16_t readData16Transaction() = 0;
+//    virtual uint8_t readData() = 0;
+//    virtual uint16_t readData16() = 0;
+//    virtual uint32_t readRawData32(uint8_t part) = 0; // debug purpose
+    virtual void writeCommandTransaction(uint8_t c) = 0;
+    virtual void writeDataTransaction(uint8_t d) = 0;
+    virtual void writeData16Transaction(uint16_t d, uint32_t num = 1) = 0;
+    virtual void writeCommand(uint8_t c) = 0;
+    virtual void writeData(uint8_t d) = 0;
+    virtual void writeData(uint8_t* d, uint32_t num) = 0;
+    virtual void writeData16(uint16_t d, uint32_t num = 1) = 0;
+    virtual void writeAddrMSBfirst(uint16_t d) = 0;
+//    virtual void startTransaction() = 0;
+//    virtual void endTransaction() = 0;
+//    virtual void selectRegister(bool rs_low) = 0;
+    virtual void setBackLight(bool lit) = 0;
 };
 
 #endif
