@@ -16,6 +16,7 @@ additionalSources("${ADD_SRC}")
 
 
 #библиотека для работы со шрифтами.
+addSubmodule(../../../kernel/rtos)
 addSubmodule(../U8g2_fonts)
 
 configureModuleSpecSrc()

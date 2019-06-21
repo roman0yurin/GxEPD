@@ -49,8 +49,9 @@ class GxEPD : public GxFont_GFX
   public:
     //GxEPD(int16_t w, int16_t h) : Adafruit_GFX(w, h) {};
     GxEPD(int16_t w, int16_t h) : GxFont_GFX(w, h) {};
+    virtual ~GxEPD() = default;
     virtual void drawPixel(int16_t x, int16_t y, uint16_t color) = 0;
-    virtual void init(uint32_t serial_diag_bitrate = 0) = 0; // = 0 : disabled
+    virtual void init() = 0; // = 0 : disabled
     virtual void fillScreen(uint16_t color) = 0; // to buffer
     virtual void update(void) = 0;
     // to buffer, may be cropped, drawPixel() used, update needed, subclass may support some modes
@@ -83,7 +84,9 @@ class GxEPD : public GxFont_GFX
     static inline uint16_t gx_uint16_min(uint16_t a, uint16_t b) {return (a < b ? a : b);};
     static inline uint16_t gx_uint16_max(uint16_t a, uint16_t b) {return (a > b ? a : b);};
     /**Вставить паузу в процесс отображения на экранчике**/
-    virtual void delay(uint32_t ms) = 0;
+    virtual void delay(uint32_t ms){
+        cpp_freertos::Thread::sleep(ms);
+    };
 };
 
 #endif

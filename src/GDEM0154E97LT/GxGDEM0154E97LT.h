@@ -38,21 +38,23 @@ class GxGDEM0154E97LT : public GxEPD
 #else
     GxGDEM0154E97LT(GxIO& io, core::pin::GpioOutputRef rst, core::pin::GpioRef busy);
 #endif
-    void drawPixel(int16_t x, int16_t y, uint16_t color);
-    void init(); // = 0 : disabled
-    void fillScreen(uint16_t color); // to buffer
-    void update(void);
+
+	~GxGDEM0154E97LT() override = default;
+	void drawPixel(int16_t x, int16_t y, uint16_t color) override;
+    void init() override ; // = 0 : disabled
+    void fillScreen(uint16_t color) override; // to buffer
+    void update(void) override;
     // to buffer, may be cropped, drawPixel() used, update needed
-    void  drawBitmap(const uint8_t *bitmap, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color, int16_t mode = bm_normal);
+    void  drawBitmap(const uint8_t *bitmap, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color, int16_t mode = bm_normal) override;
     // to full screen, filled with white if size is less, no update needed, black  /white / red, for example bitmaps
-    void drawExamplePicture(const uint8_t* black_bitmap, const uint8_t* red_bitmap, uint32_t black_size, uint32_t red_size);
+    void drawExamplePicture(const uint8_t* black_bitmap, const uint8_t* red_bitmap, uint32_t black_size, uint32_t red_size) override;
     // to full screen, filled with white if size is less, no update needed, black  /white / red, general version
-    void drawPicture(const uint8_t* black_bitmap, const uint8_t* red_bitmap, uint32_t black_size, uint32_t red_size, int16_t mode = bm_normal);
+    void drawPicture(const uint8_t* black_bitmap, const uint8_t* red_bitmap, uint32_t black_size, uint32_t red_size, int16_t mode = bm_normal) override;
     // to full screen, filled with white if size is less, no update needed
-    void drawBitmap(const uint8_t *bitmap, uint32_t size, int16_t mode = bm_normal); // only bm_normal, bm_invert, bm_partial_update modes implemented
-    void eraseDisplay(bool using_partial_update = false);
+    void drawBitmap(const uint8_t *bitmap, uint32_t size, int16_t mode = bm_normal) override; // only bm_normal, bm_invert, bm_partial_update modes implemented
+    void eraseDisplay(bool using_partial_update = false) override;
     // partial update of rectangle from buffer to screen, does not power off
-    void updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bool using_rotation = true);
+    void updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bool using_rotation = true) override;
     // partial update of rectangle at (xs,ys) from buffer to screen at (xd,yd), does not power off
     void updateToWindow(uint16_t xs, uint16_t ys, uint16_t xd, uint16_t yd, uint16_t w, uint16_t h, bool using_rotation = true);
     // terminate cleanly updateWindow or updateToWindow before removing power or long delays
@@ -79,8 +81,6 @@ class GxGDEM0154E97LT : public GxEPD
     }
     void _writeToWindow(uint16_t xs, uint16_t ys, uint16_t xd, uint16_t yd, uint16_t w, uint16_t h, bool using_rotation = true);
     uint16_t _setPartialRamArea(uint16_t x, uint16_t y, uint16_t xe, uint16_t ye);
-    void _writeData(uint8_t data);
-    void _writeCommand(uint8_t command);
     void _wakeUp();
     void _sleep();
     void _waitWhileBusy(const char* comment = 0);

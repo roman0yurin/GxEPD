@@ -6,6 +6,9 @@
 #define _GxIO_H_
 
 #include <stdint.h>
+#include "rtos/trx/SpiController.h"
+using namespace rtos::async;
+using namespace rtos::trx;
 
 class GxIO
 {
@@ -27,8 +30,9 @@ class GxIO
     virtual void writeData(uint8_t* d, uint32_t num) = 0;
     virtual void writeData16(uint16_t d, uint32_t num = 1) = 0;
     virtual void writeAddrMSBfirst(uint16_t d) = 0;
-//    virtual void startTransaction() = 0;
-//    virtual void endTransaction() = 0;
+    /**Начала транзакции (возможно многоблочной), по передаче комманды или данных**/
+    virtual Future<SpiTransaction> startTransaction(bool command) = 0;
+    virtual void endTransaction() = 0;
 //    virtual void selectRegister(bool rs_low) = 0;
     virtual void setBackLight(bool lit) = 0;
 };
