@@ -71,7 +71,7 @@ void GxGDEM0154E97LT::drawPixel(int16_t x, int16_t y, uint16_t color)
 void GxGDEM0154E97LT::init()
 {
   _wakeUp();
-  fillScreen(GxEPD_BLACK);
+  drawCornerTest();
   _current_page = -1;
   _using_partial_mode = false;
 }
@@ -427,11 +427,11 @@ void GxGDEM0154E97LT::_waitWhileBusy(const char* comment)
   unsigned long start = HAL_GetTick();
   while (true)
   {
-    if (_busy.read())
+    if (!_busy.read())
     	break;
 
     delay(1);
-    if (HAL_GetTick() - start > 20000000) // >14.9s !
+    if (HAL_GetTick() - start > 10000) // >14.9s !
     {
       if (USE_DEBUG) {
 				unsigned long elapsed = HAL_GetTick() - start;
