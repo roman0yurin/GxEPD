@@ -3,7 +3,7 @@
 
 #include "arduino/pgmspace.h"
 
-const unsigned char BitmapExample0[] PROGMEM =
+IMPL_USED const unsigned char BitmapExample0[] PROGMEM =
 {
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF0, // ####################################################################################################################################################
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF0, // ####################################################################################################################################################
@@ -155,7 +155,7 @@ const unsigned char BitmapExample0[] PROGMEM =
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF0, // ####################################################################################################################################################
 };
 
-const unsigned char BitmapExample1[] PROGMEM =
+IMPL_USED const unsigned char BitmapExample1[] PROGMEM =
 				{
 								0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
 								0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
@@ -339,7 +339,7 @@ const unsigned char BitmapExample1[] PROGMEM =
 								0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
 								0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,};
 
-const unsigned char BitmapExample2[] PROGMEM =
+IMPL_USED const unsigned char BitmapExample2[] PROGMEM =
 				{
 								0X00,0X00,0X00,0X00,0X00,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
 								0XFF,0XFF,0XFF,0X00,0X00,0X00,0X00,0X00,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
@@ -523,7 +523,7 @@ const unsigned char BitmapExample2[] PROGMEM =
 								0XFF,0XFF,0XFF,0XFF,0XFF,0X00,0X00,0X00,0X00,0X00,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
 								0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,};
 
-const unsigned char BitmapExample3[] PROGMEM =
+IMPL_USED const unsigned char BitmapExample3[] PROGMEM =
 				{
 								0XFF,0XFF,0XFF,0XFF,0XFC,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
 								0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFC,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
@@ -707,7 +707,7 @@ const unsigned char BitmapExample3[] PROGMEM =
 								0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFC,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
 								0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,};
 
-const unsigned char BitmapExample4[] PROGMEM =
+IMPL_USED const unsigned char BitmapExample4[] PROGMEM =
 				{
 								0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
 								0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,

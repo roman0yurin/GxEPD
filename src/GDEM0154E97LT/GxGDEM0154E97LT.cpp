@@ -16,9 +16,36 @@
 
 //#define DISABLE_DIAGNOSTIC_OUTPUT
 
+char vcom=0x52;	//-1.55V
+
+static const uint8_t EPD_GATE_VOLTAGE    = 0x17;	//VGH=20V
+static const uint8_t EPD_SRC_VOLTAGE_A   = 0x41;	//VSH1=15V
+static const uint8_t EPD_SRC_VOLTAGE_B   = 0x0 ;        //VSH2=0V
+static const uint8_t EPD_SRC_VOLTAGE_C   = 0x32;        //VSL=-15V
+static const uint8_t EPD_DUMMY_PERIOD    = 0x15;
+static const uint8_t EPD_GATE_PERIOD     = 0x0B;
+
+//default update waveform LUT for GDEM0154E97LT
+const unsigned char LUT[]=
+        {
+                0x80,	0xA5,	0x10,	0x0,	0x0,	0x0,	0x0,
+                0x10,	0xA5,	0x80,	0x0,	0x0,	0x0,	0x0,
+                0x80,	0xA5,	0x10,	0x0,	0x0,	0x0,	0x0,
+                0x10,	0xA5,	0x80,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+                0x6,	0x8,	0x0,	0x0,	0x2,
+                0xC,	0x0,	0xC,	0x0,	0x5,
+                0x8,	0x6,	0x0,	0x0,	0x2,
+                0x0,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0
+        };
+
+
 GxGDEM0154E97LT::GxGDEM0154E97LT(GxIO& io, core::pin::GpioOutputRef rst, core::pin::GpioRef busy)
   : GxEPD(GxGDEM0154E97LT_WIDTH, GxGDEM0154E97LT_HEIGHT), IO(io),
-    _current_page(-1), _using_partial_mode(false),
+    _current_page(-1),
     _rst(rst), _busy(busy)
 {
 }
@@ -67,13 +94,59 @@ void GxGDEM0154E97LT::drawPixel(int16_t x, int16_t y, uint16_t color)
   }
 }
 
+void GxGDEM0154E97LT::Set_Counter(uint16_t x, uint16_t y){
+    //x is addressed in 19 bytes, so just use the closest byte
+    //maybe do something later to skip the extra bits instead
+    if(x>151){
+        x=151;
+    }
+    if(y>151){
+        y=151;
+    }
+    x=x/8;
+
+    uint8_t y1=y&0xFF;
+    uint8_t y2=(y>>8)&0xFF;
+
+    IO.writeCommandTransaction(CMD_X_CNT);
+    IO.writeDataTransaction(x);
+    IO.writeCommandTransaction(CMD_Y_CNT);
+    IO.writeDataTransaction(y1);
+    IO.writeDataTransaction(y2);
+}
+
+
+void GxGDEM0154E97LT::setWriteWindow(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2){
+    //x is addressed in 19 bytes, so round down to the closest byte
+    //maybe do something later to mask the extra bits as well
+    uint8_t x_strt=x1/8;
+    uint8_t x_end=x2/8;
+
+    uint8_t y_strt1=y1&0xFF;
+    uint8_t y_strt2=(y1>>8)&0xFF;
+    uint8_t y_end1=y2&0xFF;
+    uint8_t y_end2=(y2>>8)&0xFF;
+
+    IO.writeCommandTransaction(CMD_X_POS);
+    IO.writeDataTransaction(x_strt);
+    IO.writeDataTransaction(x_end);
+
+    IO.writeCommandTransaction(CMD_Y_POS);
+    IO.writeDataTransaction(y_strt1);
+    IO.writeDataTransaction(y_strt2);
+    IO.writeDataTransaction(y_end1);
+    IO.writeDataTransaction(y_end2);
+    Set_Counter(x1,y1);
+
+}
+
+
+
 
 void GxGDEM0154E97LT::init()
 {
-  _wakeUp();
-  drawCornerTest();
-  _current_page = -1;
-  _using_partial_mode = false;
+    IO.reset();
+   _sleep(); //до вызова wakeup можно больше не тратить энергию
 }
 
 void GxGDEM0154E97LT::fillScreen(uint16_t color)
@@ -90,25 +163,31 @@ void GxGDEM0154E97LT::fillScreen(uint16_t color)
 
 void GxGDEM0154E97LT::update(void)
 {
-	if (_current_page != -1) return;
-	_using_partial_mode = false;
+	if (_current_page != -1)
+	    return;
 	_wakeUp();
-	IO.writeCommandTransaction(0x10);
+	IO.writeCommandTransaction(CMD_WRITE_RAM);
 	IO.startTransaction(false);
 	for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE; i++){
 		IO.writeData((i < sizeof(_black_buffer)) ? ~_black_buffer[i] : 0xFF);
 	}
+    //enable display update bypass option
 	IO.endTransaction();
-	IO.writeCommandTransaction(0x13);
-	IO.writeCommandTransaction(0x12); //display refresh
+	IO.writeCommandTransaction(CMD_UPDATE_CTRL_1);
+	IO.writeDataTransaction(0x40);
+    //enable clock signal, analog, LUT, pattern display, disable CP, OSC
+    IO.writeCommandTransaction(CMD_UPDATE_CTRL_2);
+    IO.writeDataTransaction(0xC7);
+
+	IO.writeCommandTransaction(CMD_UPDATE); //display refresh
 	_waitWhileBusy("update");
 	_sleep();
-	}
+}
 
 void  GxGDEM0154E97LT::drawBitmap(const uint8_t *bitmap, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color, int16_t mode)
 {
   if (mode & bm_default) mode |= bm_invert;
-  drawBitmapBM(bitmap, x, y, w, h, color, mode);
+    drawBitmapBM(bitmap, x, y, w, h, color, mode);
 }
 
 void GxGDEM0154E97LT::drawExamplePicture(const uint8_t* black_bitmap, const uint8_t* red_bitmap, uint32_t black_size, uint32_t red_size)
@@ -119,9 +198,8 @@ void GxGDEM0154E97LT::drawExamplePicture(const uint8_t* black_bitmap, const uint
 void GxGDEM0154E97LT::drawPicture(const uint8_t* black_bitmap, const uint8_t* red_bitmap, uint32_t black_size, uint32_t red_size, int16_t mode)
 {
   if (_current_page != -1) return;
-  _using_partial_mode = false;
   _wakeUp();
-  IO.writeCommandTransaction(0x10);
+  IO.writeCommandTransaction(CMD_WRITE_RAM);
   IO.startTransaction(false);
   for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE; i++)
   {
@@ -138,25 +216,8 @@ void GxGDEM0154E97LT::drawPicture(const uint8_t* black_bitmap, const uint8_t* re
     IO.writeData(data);
   }
   IO.endTransaction();
-  IO.writeCommandTransaction(0x13);
-  IO.startTransaction(false);
-  for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE; i++)
-  {
-    uint8_t data = 0xFF; // white is 0xFF on device
-    if (i < red_size)
-    {
-#if defined(__AVR) || defined(ESP8266) || defined(ESP32)
-      data = pgm_read_byte(&red_bitmap[i]);
-#else
-      data = red_bitmap[i];
-#endif
-      if (mode & bm_invert_red) data = ~data;
-    }
-	IO.writeData(data);
-  }
-	IO.endTransaction();
-	IO.writeCommandTransaction(0x12); //display refresh
-  _waitWhileBusy("drawPicture");
+  IO.writeCommandTransaction(CMD_UPDATE); //display refresh
+  _waitWhileBusy("draw");
   _sleep();
 }
 
@@ -167,43 +228,12 @@ void GxGDEM0154E97LT::drawBitmap(const uint8_t* bitmap, uint32_t size, int16_t m
   if (mode & bm_default) mode |= bm_normal;
   if (mode & bm_partial_update)
   {
-    _using_partial_mode = true;
-    _wakeUp();
-    IO.writeCommandTransaction(0x91); // partial in
-    _setPartialRamArea(0, 0, GxGDEM0154E97LT_WIDTH - 1, GxGDEM0154E97LT_HEIGHT - 1);
-	IO.writeCommandTransaction(0x10);
-	IO.startTransaction(false);
-    for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE; i++)
-    {
-      uint8_t data = 0xFF; // white is 0xFF on device
-      if (i < size)
-      {
-#if defined(__AVR) || defined(ESP8266) || defined(ESP32)
-        data = pgm_read_byte(&bitmap[i]);
-#else
-        data = bitmap[i];
-#endif
-        if (mode & bm_invert) data = ~data;
-      }
-      IO.writeData(data);
-    }
-    IO.endTransaction();
-    IO.writeCommandTransaction(0x13);
-	IO.startTransaction(false);
-    for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE; i++)
-    {
-    	IO.writeData(0xFF); // white is 0xFF on device
-    }
-    IO.endTransaction();
-	 IO.writeCommandTransaction(0x12); //display refresh
-    _waitWhileBusy("drawBitmap");
-    IO.writeCommandTransaction(0x92); // partial out
+    UNSUPPORTED;
   }
   else
   {
-    _using_partial_mode = false;
     _wakeUp();
-	IO.writeCommandTransaction(0x10);
+	IO.writeCommandTransaction(CMD_WRITE_RAM);
 	IO.startTransaction(false);
     for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE; i++)
     {
@@ -220,15 +250,8 @@ void GxGDEM0154E97LT::drawBitmap(const uint8_t* bitmap, uint32_t size, int16_t m
       IO.writeData(data);
     }
     IO.endTransaction();
-	IO.writeCommandTransaction(0x13);
-	IO.startTransaction(false);
-    for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE; i++)
-    {
-		IO.writeData(0xFF); // white is 0xFF on device
-    }
-	IO.endTransaction();
-	IO.writeCommandTransaction(0x12); //display refresh
-    _waitWhileBusy("drawBitmap");
+    IO.writeCommandTransaction(CMD_UPDATE);
+    _waitWhileBusy("draw");
     _sleep();
   }
 }
@@ -238,47 +261,19 @@ void GxGDEM0154E97LT::eraseDisplay(bool using_partial_update)
   if (_current_page != -1) return;
   if (using_partial_update)
   {
-    if (!_using_partial_mode) _wakeUp();
-    _using_partial_mode = true; // remember
-    IO.writeCommandTransaction(0x91); // partial in
-    _setPartialRamArea(0, 0, GxGDEM0154E97LT_WIDTH - 1, GxGDEM0154E97LT_HEIGHT - 1);
-	IO.writeCommandTransaction(0x10);
-	IO.startTransaction(false);
-    for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE * 2; i++)
-    {
-      IO.writeData(0xFF); // white is 0xFF on device
-    }
-    IO.endTransaction();
-    IO.writeCommandTransaction(0x13);
-    IO.startTransaction(false);
-    for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE; i++)
-    {
-      IO.writeData(0xFF); // white is 0xFF on device
-    }
-    IO.endTransaction();
-	IO.writeCommandTransaction(0x12); //display refresh
-    _waitWhileBusy("eraseDisplay");
-    IO.writeCommandTransaction(0x92); // partial out
+    UNSUPPORTED;
   }
   else
   {
-    _using_partial_mode = false; // remember
     _wakeUp();
-    IO.writeCommandTransaction(0x10);
+    IO.writeCommandTransaction(CMD_WRITE_RAM);
     IO.startTransaction(false);
     for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE * 2; i++)
     {
       IO.writeData(0xFF); // white is 0xFF on device
     }
   	IO.endTransaction();
-    IO.writeCommandTransaction(0x13);
-    IO.startTransaction(false);
-    for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE; i++)
-    {
-      IO.writeData(0xFF); // white is 0xFF on device
-    }
-    IO.endTransaction();
-	IO.writeCommandTransaction(0x12); //display refresh
+	IO.writeCommandTransaction(CMD_UPDATE); //display refresh
     _waitWhileBusy("eraseDisplay");
     _sleep();
   }
@@ -286,140 +281,21 @@ void GxGDEM0154E97LT::eraseDisplay(bool using_partial_update)
 
 void GxGDEM0154E97LT::updateWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h, bool using_rotation)
 {
-  if (_current_page != -1) return;
-  if (using_rotation)
-  {
-    switch (getRotation())
-    {
-      case 1:
-        swap(x, y);
-        swap(w, h);
-        x = GxGDEM0154E97LT_WIDTH - x - w - 1;
-        break;
-      case 2:
-        x = GxGDEM0154E97LT_WIDTH - x - w - 1;
-        y = GxGDEM0154E97LT_HEIGHT - y - h - 1;
-        break;
-      case 3:
-        swap(x, y);
-        swap(w, h);
-        y = GxGDEM0154E97LT_HEIGHT - y  - h - 1;
-        break;
-    }
-  }
-  if (x >= GxGDEM0154E97LT_WIDTH) return;
-  if (y >= GxGDEM0154E97LT_HEIGHT) return;
-  // x &= 0xFFF8; // byte boundary, not here, use encompassing rectangle
-  uint16_t xe = gx_uint16_min(GxGDEM0154E97LT_WIDTH, x + w) - 1;
-  uint16_t ye = gx_uint16_min(GxGDEM0154E97LT_HEIGHT, y + h) - 1;
-  // x &= 0xFFF8; // byte boundary, not needed here
-  uint16_t xs_bx = x / 8;
-  uint16_t xe_bx = (xe + 7) / 8;
-  if (!_using_partial_mode) _wakeUp();
-  _using_partial_mode = true;
-  IO.writeCommandTransaction(0x91); // partial in
-  _setPartialRamArea(x, y, xe, ye);
-  IO.writeCommandTransaction(0x10);
-  for (int16_t y1 = y; y1 <= ye; y1++)
-  {
-    for (int16_t x1 = xs_bx; x1 < xe_bx; x1++)
-    {
-      uint16_t idx = y1 * (GxGDEM0154E97LT_WIDTH / 8) + x1;
-      uint8_t data = (idx < sizeof(_black_buffer)) ? _black_buffer[idx] : 0x00; // white is 0x00 in buffer
-      IO.writeDataTransaction(~data); // white is 0xFF on device
-    }
-  }
-  IO.writeCommandTransaction(0x12);      //display refresh
-  _waitWhileBusy("updateWindow");
-  IO.writeCommandTransaction(0x92); // partial out
-  delay(GxGDEM0154E97LT_PU_DELAY); // don't stress this display
+    UNSUPPORTED;//нет partialUpdate
 }
 
 void GxGDEM0154E97LT::updateToWindow(uint16_t xs, uint16_t ys, uint16_t xd, uint16_t yd, uint16_t w, uint16_t h, bool using_rotation)
 {
-  if (!_using_partial_mode) _wakeUp();
-  _using_partial_mode = true;
-  _writeToWindow(xs, ys, xd, yd, w, h, using_rotation);
-  IO.writeCommandTransaction(0x12);      //display refresh
-  _waitWhileBusy("updateToWindow");
-  delay(GxGDEM0154E97LT_PU_DELAY); // don't stress this display
+   UNSUPPORTED;//нет partialUpdate
 }
 
-void GxGDEM0154E97LT::_writeToWindow(uint16_t xs, uint16_t ys, uint16_t xd, uint16_t yd, uint16_t w, uint16_t h, bool using_rotation)
-{
-  if (using_rotation)
-  {
-    switch (getRotation())
-    {
-      case 1:
-        swap(xs, ys);
-        swap(xd, yd);
-        swap(w, h);
-        xs = GxGDEM0154E97LT_WIDTH - xs - w - 1;
-        xd = GxGDEM0154E97LT_WIDTH - xd - w - 1;
-        break;
-      case 2:
-        xs = GxGDEM0154E97LT_WIDTH - xs - w - 1;
-        ys = GxGDEM0154E97LT_HEIGHT - ys - h - 1;
-        xd = GxGDEM0154E97LT_WIDTH - xd - w - 1;
-        yd = GxGDEM0154E97LT_HEIGHT - yd - h - 1;
-        break;
-      case 3:
-        swap(xs, ys);
-        swap(xd, yd);
-        swap(w, h);
-        ys = GxGDEM0154E97LT_HEIGHT - ys  - h - 1;
-        yd = GxGDEM0154E97LT_HEIGHT - yd  - h - 1;
-        break;
-    }
-  }
-  if (xs >= GxGDEM0154E97LT_WIDTH) return;
-  if (ys >= GxGDEM0154E97LT_HEIGHT) return;
-  if (xd >= GxGDEM0154E97LT_WIDTH) return;
-  if (yd >= GxGDEM0154E97LT_HEIGHT) return;
-  // the screen limits are the hard limits
-  uint16_t xde = gx_uint16_min(GxGDEM0154E97LT_WIDTH, xd + w) - 1;
-  uint16_t yde = gx_uint16_min(GxGDEM0154E97LT_HEIGHT, yd + h) - 1;
-  IO.writeCommandTransaction(0x91); // partial in
-  // soft limits, must send as many bytes as set by _SetRamArea
-  uint16_t yse = ys + yde - yd;
-  uint16_t xss_d8 = xs / 8;
-  uint16_t xse_d8 = xss_d8 + _setPartialRamArea(xd, yd, xde, yde);
-  IO.writeCommandTransaction(0x10);
-  for (int16_t y1 = ys; y1 <= yse; y1++)
-  {
-    for (int16_t x1 = xss_d8; x1 < xse_d8; x1++)
-    {
-      uint16_t idx = y1 * (GxGDEM0154E97LT_WIDTH / 8) + x1;
-      uint8_t data = (idx < sizeof(_black_buffer)) ? _black_buffer[idx] : 0x00; // white is 0x00 in buffer
-      IO.writeDataTransaction(~data); // white is 0xFF on device
-    }
-  }
-  IO.writeCommandTransaction(0x92); // partial out
+void GxGDEM0154E97LT::_writeToWindow(uint16_t xs, uint16_t ys, uint16_t xd, uint16_t yd, uint16_t w, uint16_t h, bool using_rotation){
+  UNSUPPORTED;//нет partialUpdate
 }
 
 void GxGDEM0154E97LT::powerDown()
 {
-  _using_partial_mode = false; // force _wakeUp()
   _sleep();
-}
-
-uint16_t GxGDEM0154E97LT::_setPartialRamArea(uint16_t x, uint16_t y, uint16_t xe, uint16_t ye)
-{
-  x &= 0xFFF8; // byte boundary
-  xe = (xe - 1) | 0x0007; // byte boundary - 1
-  IO.writeCommandTransaction(0x90); // partial window
-  //IO.writeDataTransaction(x / 256);
-  IO.writeDataTransaction(x % 256);
-  //IO.writeDataTransaction(xe / 256);
-  IO.writeDataTransaction(xe % 256);
-  IO.writeDataTransaction(y / 256);
-  IO.writeDataTransaction(y % 256);
-  IO.writeDataTransaction(ye / 256);
-  IO.writeDataTransaction(ye % 256);
-  IO.writeDataTransaction(0x01); // don't see any difference
-  //IO.writeDataTransaction(0x00); // don't see any difference
-  return (7 + xe - x) / 8; // number of bytes to transfer per line
 }
 
 void GxGDEM0154E97LT::_waitWhileBusy(const char* comment)
@@ -443,42 +319,55 @@ void GxGDEM0154E97LT::_waitWhileBusy(const char* comment)
   (void) start;
 }
 
+boolean inSleep = false;
+
 void GxGDEM0154E97LT::_wakeUp()
 {
-	// reset required for wakeup
-	IO.reset();
+    _waitWhileBusy("init");
+    IO.writeCommandTransaction(0x1);
+    IO.writeCommandTransaction(CMD_RESET);
+    _waitWhileBusy("init");
+    //undocumented commands from the STM32 driver, just using the recommended settings
+    IO.writeCommandTransaction(CMD_ANALOG_CTRL); //set analog block control
+    IO.writeDataTransaction(0x54);
+    IO.writeCommandTransaction(CMD_DIGITAL_CTRL); //set digital block control
+    IO.writeDataTransaction(0x3B);
 
-	IO.writeCommandTransaction(0x06); //boost soft start
-	IO.writeDataTransaction (0x17); //A
-	IO.writeDataTransaction (0x17); //B
-	IO.writeDataTransaction (0x17); //C
-	IO.writeCommandTransaction(0x04);
-	_waitWhileBusy("_wakeUp Power On");
-	IO.writeCommandTransaction(0x00); //panel setting
-	IO.writeDataTransaction(0x0f);    //LUT from OTP, 160x296
-	IO.writeDataTransaction(0x0d);    //VCOM to 0V fast
-	IO.writeCommandTransaction(0x61); //resolution setting
-	IO.writeDataTransaction (0x98); // HRES=152
-	IO.writeDataTransaction (0x00); // VRES_byte1=0
-	IO.writeDataTransaction (0x98); // VRES_byte2=152
-	IO.writeCommandTransaction(0X50);     //VCOM AND DATA INTERVAL SETTING
-	IO.writeDataTransaction(0x77);    //WBmode:VBDF 17|D7 VBDW 97 VBDB 57   WBRmode:VBDF F7 VBDW 77 VBDB 37  VBDR B7
-	}
+    IO.writeCommandTransaction(CMD_DRIVER_OUTPUT);
+    IO.writeDataTransaction(0x97); //152 MUX gate lines
+    IO.writeDataTransaction(0x00); //152 MUX gate lines
+    IO.writeDataTransaction(0x00); //gate direction=0, scan mode=0, scan direction=0
+
+    IO.writeCommandTransaction(CMD_TMP_CTRL);
+    IO.writeDataTransaction(0x80); //use internal temperature sensor
+
+    IO.writeCommandTransaction(CMD_DATA_ENTRY_MODE);
+    IO.writeDataTransaction(0x03);   //address counter auto-increments from top left to bottom right
+
+    //////////////////////////////////////////
+    //todo:make initial window based on device size
+    //////////////////////////////////////////
+    setWriteWindow(0, 151, 0, 151);
+
+    IO.writeCommandTransaction(CMD_BORDER_CTRL);
+    IO.writeDataTransaction(0x01);	//use GS transition LH for VBD
+
+    LUT_Written_by_MCU();
+}
 
 void GxGDEM0154E97LT::_sleep(void)
 {
-	IO.writeCommandTransaction(0x02);      //power off
-  _waitWhileBusy("_sleep Power Off");
-	IO.writeCommandTransaction(0x07); // deep sleep
-	IO.writeDataTransaction (0xa5);
+    IO.writeCommandTransaction(CMD_SLEEP);
+    IO.writeDataTransaction(0x00);
+    delay(2);
+    inSleep = true;
 }
 
 void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(void))
 {
   if (_current_page != -1) return;
-  _using_partial_mode = false;
   _wakeUp();
-	IO.writeCommandTransaction(0x10);
+	IO.writeCommandTransaction(CMD_WRITE_RAM);
   for (_current_page = 0; _current_page < GxGDEM0154E97LT_PAGES; _current_page++)
   {
     fillScreen(GxEPD_WHITE);
@@ -496,7 +385,7 @@ void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(void))
     IO.endTransaction();
   }
   _current_page = -1;
-	IO.writeCommandTransaction(0x12); //display refresh
+	IO.writeCommandTransaction(CMD_UPDATE); //display refresh
   _waitWhileBusy("drawPaged");
   _sleep();
 }
@@ -504,9 +393,8 @@ void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(void))
 void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(uint32_t), uint32_t p)
 {
   if (_current_page != -1) return;
-  _using_partial_mode = false;
   _wakeUp();
-  IO.writeCommandTransaction(0x10);
+  IO.writeCommandTransaction(CMD_WRITE_RAM);
   for (_current_page = 0; _current_page < GxGDEM0154E97LT_PAGES; _current_page++)
   {
     fillScreen(GxEPD_WHITE);
@@ -524,7 +412,7 @@ void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(uint32_t), uint32_t p)
     IO.endTransaction();
   }
   _current_page = -1;
-	IO.writeCommandTransaction(0x12); //display refresh
+	IO.writeCommandTransaction(CMD_UPDATE); //display refresh
   _waitWhileBusy("drawPaged");
   _sleep();
 }
@@ -532,9 +420,8 @@ void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(uint32_t), uint32_t p)
 void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(const void*), const void* p)
 {
   if (_current_page != -1) return;
-  _using_partial_mode = false;
   _wakeUp();
-	IO.writeCommandTransaction(0x10);
+	IO.writeCommandTransaction(CMD_WRITE_RAM);
   for (_current_page = 0; _current_page < GxGDEM0154E97LT_PAGES; _current_page++)
   {
     fillScreen(GxEPD_WHITE);
@@ -552,7 +439,7 @@ void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(const void*), const void* p
 	IO.endTransaction();
   }
   _current_page = -1;
-	IO.writeCommandTransaction(0x12); //display refresh
+	IO.writeCommandTransaction(CMD_UPDATE); //display refresh
   _waitWhileBusy("drawPaged");
   _sleep();
 }
@@ -560,9 +447,8 @@ void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(const void*), const void* p
 void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(const void*, const void*), const void* p1, const void* p2)
 {
   if (_current_page != -1) return;
-  _using_partial_mode = false;
   _wakeUp();
-  IO.writeCommandTransaction(0x10);
+  IO.writeCommandTransaction(CMD_WRITE_RAM);
   IO.startTransaction(false);
   for (_current_page = 0; _current_page < GxGDEM0154E97LT_PAGES; _current_page++)
   {
@@ -580,7 +466,7 @@ void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(const void*, const void*), 
   }
   IO.endTransaction();
   _current_page = -1;
-  IO.writeCommandTransaction(0x12); //display refresh
+  IO.writeCommandTransaction(CMD_UPDATE); //display refresh
   _waitWhileBusy("drawPaged");
   _sleep();
 }
@@ -606,124 +492,11 @@ void GxGDEM0154E97LT::_rotate(uint16_t& x, uint16_t& y, uint16_t& w, uint16_t& h
   }
 }
 
-void GxGDEM0154E97LT::drawPagedToWindow(void (*drawCallback)(void), uint16_t x, uint16_t y, uint16_t w, uint16_t h)
-{
-  if (_current_page != -1) return;
-  _rotate(x, y, w, h);
-  if (!_using_partial_mode)
-  {
-    eraseDisplay(false);
-    eraseDisplay(true);
-  }
-  _using_partial_mode = true;
-  for (_current_page = 0; _current_page < GxGDEM0154E97LT_PAGES; _current_page++)
-  {
-    uint16_t yds = gx_uint16_max(y, _current_page * GxGDEM0154E97LT_PAGE_HEIGHT);
-    uint16_t yde = gx_uint16_min(y + h, (_current_page + 1) * GxGDEM0154E97LT_PAGE_HEIGHT);
-    if (yde > yds)
-    {
-      fillScreen(GxEPD_WHITE);
-      drawCallback();
-      uint16_t ys = yds % GxGDEM0154E97LT_PAGE_HEIGHT;
-      _writeToWindow(x, ys, x, yds, w, yde - yds, false);
-    }
-  }
-  _current_page = -1;
-  IO.writeCommandTransaction(0x12);      //display refresh
-  _waitWhileBusy("drawPagedToWindow");
-  delay(GxGDEM0154E97LT_PU_DELAY); // don't stress this display
-}
-
-void GxGDEM0154E97LT::drawPagedToWindow(void (*drawCallback)(uint32_t), uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint32_t p)
-{
-  if (_current_page != -1) return;
-  _rotate(x, y, w, h);
-  if (!_using_partial_mode)
-  {
-    eraseDisplay(false);
-    eraseDisplay(true);
-  }
-  _using_partial_mode = true;
-  for (_current_page = 0; _current_page < GxGDEM0154E97LT_PAGES; _current_page++)
-  {
-    uint16_t yds = gx_uint16_max(y, _current_page * GxGDEM0154E97LT_PAGE_HEIGHT);
-    uint16_t yde = gx_uint16_min(y + h, (_current_page + 1) * GxGDEM0154E97LT_PAGE_HEIGHT);
-    if (yde > yds)
-    {
-      fillScreen(GxEPD_WHITE);
-      drawCallback(p);
-      uint16_t ys = yds % GxGDEM0154E97LT_PAGE_HEIGHT;
-      _writeToWindow(x, ys, x, yds, w, yde - yds, false);
-    }
-  }
-  _current_page = -1;
-  IO.writeCommandTransaction(0x12);      //display refresh
-  _waitWhileBusy("drawPagedToWindow");
-  delay(GxGDEM0154E97LT_PU_DELAY); // don't stress this display
-}
-
-void GxGDEM0154E97LT::drawPagedToWindow(void (*drawCallback)(const void*), uint16_t x, uint16_t y, uint16_t w, uint16_t h, const void* p)
-{
-  if (_current_page != -1) return;
-  _rotate(x, y, w, h);
-  if (!_using_partial_mode)
-  {
-    eraseDisplay(false);
-    eraseDisplay(true);
-  }
-  _using_partial_mode = true;
-  for (_current_page = 0; _current_page < GxGDEM0154E97LT_PAGES; _current_page++)
-  {
-    uint16_t yds = gx_uint16_max(y, _current_page * GxGDEM0154E97LT_PAGE_HEIGHT);
-    uint16_t yde = gx_uint16_min(y + h, (_current_page + 1) * GxGDEM0154E97LT_PAGE_HEIGHT);
-    if (yde > yds)
-    {
-      fillScreen(GxEPD_WHITE);
-      drawCallback(p);
-      uint16_t ys = yds % GxGDEM0154E97LT_PAGE_HEIGHT;
-      _writeToWindow(x, ys, x, yds, w, yde - yds, false);
-    }
-  }
-  _current_page = -1;
-  IO.writeCommandTransaction(0x12);      //display refresh
-  _waitWhileBusy("drawPagedToWindow");
-  delay(GxGDEM0154E97LT_PU_DELAY); // don't stress this display
-}
-
-void GxGDEM0154E97LT::drawPagedToWindow(void (*drawCallback)(const void*, const void*), uint16_t x, uint16_t y, uint16_t w, uint16_t h, const void* p1, const void* p2)
-{
-  if (_current_page != -1) return;
-  _rotate(x, y, w, h);
-  if (!_using_partial_mode)
-  {
-    eraseDisplay(false);
-    eraseDisplay(true);
-  }
-  _using_partial_mode = true;
-  for (_current_page = 0; _current_page < GxGDEM0154E97LT_PAGES; _current_page++)
-  {
-    uint16_t yds = gx_uint16_max(y, _current_page * GxGDEM0154E97LT_PAGE_HEIGHT);
-    uint16_t yde = gx_uint16_min(y + h, (_current_page + 1) * GxGDEM0154E97LT_PAGE_HEIGHT);
-    if (yde > yds)
-    {
-      fillScreen(GxEPD_WHITE);
-      drawCallback(p1, p2);
-      uint16_t ys = yds % GxGDEM0154E97LT_PAGE_HEIGHT;
-      _writeToWindow(x, ys, x, yds, w, yde - yds, false);
-    }
-  }
-  _current_page = -1;
-  IO.writeCommandTransaction(0x12);      //display refresh
-  _waitWhileBusy("drawPagedToWindow");
-  delay(GxGDEM0154E97LT_PU_DELAY); // don't stress this display
-}
-
 void GxGDEM0154E97LT::drawCornerTest(uint8_t em)
 {
   if (_current_page != -1) return;
-  _using_partial_mode = false;
   _wakeUp();
-  IO.writeCommandTransaction(0x10);
+  IO.writeCommandTransaction(CMD_WRITE_RAM);
   IO.startTransaction(false);
   for (uint32_t y = 0; y < GxGDEM0154E97LT_HEIGHT; y++)
   {
@@ -738,16 +511,52 @@ void GxGDEM0154E97LT::drawCornerTest(uint8_t em)
     }
   }
   IO.endTransaction();
-  IO.writeCommandTransaction(0x13);
-	IO.startTransaction(false);
-  for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE; i++)
-  {
-	  IO.writeData(0xFF); // white is 0xFF on device
-  }
-	IO.endTransaction();
-	IO.writeCommandTransaction(0x12); //display refresh
-  _waitWhileBusy("drawCornerTest");
+  update();
   _sleep();
+}
+
+
+/*
+* Function name: Epaper_LUT
+ * Description : Loading waveforms for SSD1675
+ * Enter :wave_data - device-specific driving waveform
+ * Output : None
+ */
+void GxGDEM0154E97LT::Epaper_LUT(uint8_t *wave_data)
+{
+    uint8_t count;
+    int LUTSize=sizeof(LUT)/sizeof(LUT[0]);
+
+    IO.writeCommandTransaction(CMD_WRITE_LUT);
+    IO.startTransaction(false);
+    for(count=0;count<LUTSize;count++)
+        IO.writeData(*wave_data++);
+    IO.endTransaction();
+    _waitWhileBusy();
+
+}
+
+void GxGDEM0154E97LT::LUT_Written_by_MCU(void)
+{
+
+    IO.writeCommandTransaction(CMD_WRITE_VCOM);
+    IO.writeDataTransaction( vcom); //manually set VCOM to -1.55V, should change this to use VCOM sense
+
+    IO.writeCommandTransaction(CMD_GATE_V);
+    IO.writeDataTransaction(EPD_GATE_VOLTAGE);
+
+    IO.writeCommandTransaction(CMD_SRC_V);
+    IO.writeDataTransaction(EPD_SRC_VOLTAGE_A);
+    IO.writeDataTransaction(EPD_SRC_VOLTAGE_B);
+    IO.writeDataTransaction(EPD_SRC_VOLTAGE_C);
+
+    IO.writeCommandTransaction(CMD_DMY_LINE_T);
+    IO.writeDataTransaction(EPD_DUMMY_PERIOD);
+    IO.writeCommandTransaction(CMD_GATE_LINE_T);
+    IO.writeDataTransaction(EPD_GATE_PERIOD);
+
+    Epaper_LUT((uint8_t *)LUT);
+
 }
 
 
