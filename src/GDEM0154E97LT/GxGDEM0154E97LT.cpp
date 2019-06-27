@@ -1,4 +1,4 @@
-// class GxGDEM0154E97LT : Display class for GDEW0154Z17 e-Paper from Dalian Good Display Co., Ltd.: www.good-display.com
+// class GxGDEM0154E97LT : Display class for GDEM0154E97LT e-Paper from Dalian Good Display Co., Ltd.: www.good-display.com
 //
 // based on Demo Example from Good Display, available here: http://www.good-display.com/download_detail/downloadsId=555.html
 // Controller: IL0373 : http://www.good-display.com/download_detail/downloadsId=535.html
@@ -26,7 +26,7 @@ static const uint8_t EPD_DUMMY_PERIOD    = 0x15;
 static const uint8_t EPD_GATE_PERIOD     = 0x0B;
 
 //default update waveform LUT for GDEM0154E97LT
-const unsigned char LUT[]=
+IMPL_USED const unsigned char HEAVY_FULL_UPDATE_LUT[]=
         {
                 0x80,	0xA5,	0x10,	0x0,	0x0,	0x0,	0x0,
                 0x10,	0xA5,	0x80,	0x0,	0x0,	0x0,	0x0,
@@ -36,6 +36,39 @@ const unsigned char LUT[]=
                 0x6,	0x8,	0x0,	0x0,	0x2,
                 0xC,	0x0,	0xC,	0x0,	0x5,
                 0x8,	0x6,	0x0,	0x0,	0x2,
+                0x0,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0
+        };
+
+
+const unsigned char FULL_UPDATE_LUT[]=
+        {
+                0x80,	0xA5,	0x10,	0x0,	0x0,	0x0,	0x0,
+                0x10,	0xA5,	0x80,	0x0,	0x0,	0x0,	0x0,
+                0x80,	0xA5,	0x10,	0x0,	0x0,	0x0,	0x0,
+                0x10,	0xA5,	0x80,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+                0x6,	0x8,	0x0,	0x0,	0x0,
+                0xC,	0x0,	0xC,	0x0,	0x1,
+                0x8,	0x6,	0x0,	0x0,	0x3,
+                0x0,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0
+        };
+
+IMPL_USED const unsigned char PARTIAL_LUT[]=
+        {
+                0x80,	0xA5,	0x10,	0x0,	0x0,	0x0,	0x0,
+                0x10,	0xA5,	0x80,	0x0,	0x0,	0x0,	0x0,
+                0x80,	0xA5,	0x10,	0x0,	0x0,	0x0,	0x0,
+                0x10,	0xA5,	0x80,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0,
+                0x0,	0x0,	0x0,	0x0,	0x0,
+                0xA,	0x6,	0x0,	0x0,	0x5,
                 0x0,	0x0,	0x0,	0x0,	0x0,
                 0x0,	0x0,	0x0,	0x0,	0x0,
                 0x0,	0x0,	0x0,	0x0,	0x0,
@@ -179,8 +212,8 @@ void GxGDEM0154E97LT::update(void)
     IO.writeCommandTransaction(CMD_UPDATE_CTRL_2);
     IO.writeDataTransaction(0xC7);
 
-	IO.writeCommandTransaction(CMD_UPDATE); //display refresh
-	_waitWhileBusy("update");
+    IO.writeCommandTransaction(CMD_UPDATE); //display refresh
+    _waitWhileBusy("update");
 	_sleep();
 }
 
@@ -238,7 +271,7 @@ void GxGDEM0154E97LT::drawBitmap(const uint8_t* bitmap, uint32_t size, int16_t m
     for (uint32_t i = 0; i < GxGDEM0154E97LT_BUFFER_SIZE; i++)
     {
       uint8_t data = 0xFF; // white is 0xFF on device
-      if (i < size)
+      if (size == 0 || i < size)
       {
 #if defined(__AVR) || defined(ESP8266) || defined(ESP32)
         data = pgm_read_byte(&bitmap[i]);
@@ -386,7 +419,7 @@ void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(void))
   }
   _current_page = -1;
 	IO.writeCommandTransaction(CMD_UPDATE); //display refresh
-  _waitWhileBusy("drawPaged");
+  _waitWhileBusy("draw");
   _sleep();
 }
 
@@ -413,7 +446,7 @@ void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(uint32_t), uint32_t p)
   }
   _current_page = -1;
 	IO.writeCommandTransaction(CMD_UPDATE); //display refresh
-  _waitWhileBusy("drawPaged");
+  _waitWhileBusy("draw");
   _sleep();
 }
 
@@ -440,7 +473,7 @@ void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(const void*), const void* p
   }
   _current_page = -1;
 	IO.writeCommandTransaction(CMD_UPDATE); //display refresh
-  _waitWhileBusy("drawPaged");
+  _waitWhileBusy("draw");
   _sleep();
 }
 
@@ -467,7 +500,7 @@ void GxGDEM0154E97LT::drawPaged(void (*drawCallback)(const void*, const void*), 
   IO.endTransaction();
   _current_page = -1;
   IO.writeCommandTransaction(CMD_UPDATE); //display refresh
-  _waitWhileBusy("drawPaged");
+  _waitWhileBusy("draw");
   _sleep();
 }
 
@@ -525,7 +558,7 @@ void GxGDEM0154E97LT::drawCornerTest(uint8_t em)
 void GxGDEM0154E97LT::Epaper_LUT(uint8_t *wave_data)
 {
     uint8_t count;
-    int LUTSize=sizeof(LUT)/sizeof(LUT[0]);
+    int LUTSize=sizeof(HEAVY_FULL_UPDATE_LUT)/sizeof(HEAVY_FULL_UPDATE_LUT[0]);
 
     IO.writeCommandTransaction(CMD_WRITE_LUT);
     IO.startTransaction(false);
@@ -555,8 +588,18 @@ void GxGDEM0154E97LT::LUT_Written_by_MCU(void)
     IO.writeCommandTransaction(CMD_GATE_LINE_T);
     IO.writeDataTransaction(EPD_GATE_PERIOD);
 
-    Epaper_LUT((uint8_t *)LUT);
+    if(partialUpdate)
+        Epaper_LUT((uint8_t *)PARTIAL_LUT);
+    else
+        Epaper_LUT((uint8_t *)HEAVY_FULL_UPDATE_LUT);
 
+}
+
+void GxGDEM0154E97LT::updateFromRAM() {
+    _wakeUp();
+    IO.writeCommandTransaction(CMD_UPDATE); //display refresh
+    _waitWhileBusy("draw");
+    _sleep();
 }
 
 

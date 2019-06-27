@@ -82,3 +82,28 @@ void  GxEPD::drawBitmapBM(const uint8_t *bitmap, uint16_t x, uint16_t y, uint16_
 }
 
 
+void GxEPD::drawTable(pair<string, string> *table, uint16_t size, uint16_t labelWidth, bool partUpd, uint8_t color, uint8_t padding){
+    uint8_t lnHeight = gfxFont->yAdvance + padding;
+    uint8_t w = width() - 1;
+    uint16_t totalHeight = size * (lnHeight + 1);
+    drawLine(0, 0, 0, totalHeight, color);
+    drawLine(labelWidth, 0, labelWidth, totalHeight, color);
+    drawLine(w, 0, w, totalHeight, color);
+
+    for(uint16_t ln = 0; ln <= size; ln ++){
+        uint16_t y = ln * (lnHeight + 1);
+        drawLine(0, y, w, y, color);
+        uint16_t textY = (ln + 1) * (lnHeight + 1) - 1 - padding;
+
+        if(ln < size) {
+            setCursor(padding, textY);
+            print(table[ln].first.c_str());
+
+            setCursor(padding + labelWidth, textY);
+            print(table[ln].second.c_str());
+        }
+    }
+
+}
+
+
